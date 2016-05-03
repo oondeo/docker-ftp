@@ -2,4 +2,4 @@
 
 /usr/local/sbin/sshconfig $*
 
-exec /usr/sbin/vsftpd /etc/vsftpd/vsftpd.conf
+exec /usr/sbin/vsftpd /var/run/vsftpd.conf
