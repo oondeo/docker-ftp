@@ -4,7 +4,7 @@ FROM oondeo/alpine
 # Step 2: Remove keys, they will be generated later by entrypoint
 #         (unique keys for each container)
 RUN apk-install vsftpd bash && \
-    rm -f /etc/vsftpd/* 
+    rm -f /etc/vsftpd/* && touch /etc/vsftpd.banned_emails 
 
 ENV CHROOT="yes" PORTS="60000:60010" ADDRESS="" 
 EXPOSE 20 21 60000-65535
