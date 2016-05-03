@@ -1,5 +1,12 @@
-# ssh
-minimal ssh server
+# vsftpd
+minimal ftp server
 docs at: https://github.com/atmoz/sftp
 
-SSH login can be enabled with SSH=yes as environment variable 
+VARIABLES:
+
+CHROOT:YES jail users in home dir
+PORTS: pasv ports used default: 60000:60010
+ADDRESS: public address
+
+
+
