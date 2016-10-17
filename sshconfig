@@ -58,7 +58,7 @@ function createUser() {
     echo $user >> $userListConfFinalPath
     adduser $useraddOptions $user
     mkdir -p /home/$user
-    chown root:root /home/$user
+    chown $user:root /home/$user
     chmod 755 /home/$user
 
     if [ -z "$pass" ]; then
