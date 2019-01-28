@@ -1,0 +1,21 @@
+#!/bin/dash
+
+#set -o errexit
+#export_vars=$(cgroup-limits) ; export $export_vars
+export DOCUMENTROOT=${DOCUMENTROOT:-/}
+export HOME=${HOME:-/opt/app-root/src}
+STI_SCRIPTS_PATH=${STI_SCRIPTS_PATH:-/usr/libexec/s2i/bin}
+
+echo "Apply environment variables attributes"
+$STI_SCRIPTS_PATH/conf-ssh "$USERS"
+echo "Starting server"
+COMMAND=$1
+shift
+if test "$COMMAND" = "sshd"; then
+    /usr/sbin/sshd -D -f $HOME/../etc/sshd_config $*
+elif test "$COMMAND" = "vsftpd"; then
+    /usr/sbin/vsftpd $HOME/../etc/vsftpd.conf $*
+else
+    /usr/sbin/sshd -D -f $HOME/../etc/sshd_config $COMMAND $*
+fi
+

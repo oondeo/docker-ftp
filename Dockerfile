@@ -1,20 +1,48 @@
-FROM alpine
+FROM quay.io/oondeo/alpine
+
+ENV SUMMARY="SSHD and FTP Image"	\
+    DESCRIPTION="SSHD and FTP Image, also have rsync and git commands to use with ssh. The image use scripts and configurations compatible \
+        with redhat openshift."
+
+LABEL summary="$SUMMARY" \
+      description="$DESCRIPTION" \
+      io.k8s.description="$DESCRIPTION" \
+      io.k8s.display-name="vsftpd" \
+      io.openshift.s2i.scripts-url=image:///usr/libexec/s2i/bin \
+      io.s2i.scripts-url=image:///usr/libexec/s2i/bin \
+      com.redhat.component="core" \
+      name="oondeo/vsftpd" \
+      version="3.0.3" \
+      release="2" \
+maintainer="OONDEO <info@oondeo.es>"
 
 # Step 1: sshd needs /var/run/sshd/ to run
 # Step 2: Remove keys, they will be generated later by entrypoint
 #         (unique keys for each container)
-RUN apk add --no-cache --update vsftpd bash && \
-    rm -f /etc/vsftpd/* && touch /etc/vsftpd.banned_emails 
+RUN apk add --no-cache --update vsftpd git bash openssh openssh-server rsync db-utils && \
+    rm -f /etc/vsftpd/* && touch /etc/vsftpd.banned_emails \
+    && mkdir -p /opt/app-root/etc/ssh 
+    #&& touch mkdir -p /opt/app-root/etc/ssh/authorized_keys
 
-ENV CHROOT="yes" PORTS="60000:60010" ADDRESS="" 
-EXPOSE 20 21 60000-65535
+ENV CHROOT="no" PASSIVE_PORTS="60000:60010" SSH_PORT="10022" FTP_PORT="10020" FTPD_PORT="10021" ADDRESS="" 
 
-ADD entrypoint /usr/local/sbin/entrypoint
-ADD sshconfig /usr/local/sbin/sshconfig
-ADD vsftpd.conf /etc/
+EXPOSE 10020 10021 10022 60000-65535
 
-VOLUME /etc/vsftpd
+COPY etc/vsftpd.virtual /etc/pam.d/
+COPY etc $HOME/../etc  
+COPY s2i/bin $STI_SCRIPTS_PATH
 
-ENTRYPOINT ["/usr/local/sbin/entrypoint"]
+# VOLUME /opt/app-root/etc
+
+RUN docker-footer \ 
+    && sed -i 's/1001\:\!/1001:*/g' /etc/shadow \
+    && chown root:root /etc/shadow && chmod 660 /etc/shadow \
+    && chmod go-w /opt/app-root/etc /opt/app-root /opt 
+
+
+
+USER 1001
+
+CMD [ "$STI_SCRIPTS_PATH/run" ]
 
 

@@ -1,8 +1,9 @@
 #!/bin/bash
 set -e
 
-
-userConfPath="/etc/vsftpd/vsftpd.conf"
+#https://help.ubuntu.com/community/vsftpd
+HOME=${HOME:-/opt/app-root/src}
+userConfPath="$HOME/../etc/vsftpd.conf"
 userConfFinalPath="/var/run/vsftpd.conf"
 userListConfFinalPath="/var/run/vsftpd.chroot_list"
 userListFinalPath="/var/run/user_list"
@@ -18,6 +19,23 @@ function printReadme() {
 }
 
 function createUser() {
+    IFS=':' read -a param <<< $@
+    user="${param[0]}"
+    pass="${param[1]}"
+
+    #add users to virtualusers file
+    echo $user >> $userListConfFinalPath
+    echo $pass >> $userListConfFinalPath
+
+    if [ "$CHROOT" == "yes" ]; then 
+        mkdir -p $HOME/$user
+    fi
+
+    db_load -T -t hash -f "$userListConfFinalPath" "${userListConfFinalPath}.db"
+    # chmod 600 "${userListConfFinalPath}.db"
+    rm $userListConfFinalPath    
+}
+function _createUser() {
     IFS=':' read -a param <<< $@
     user="${param[0]}"
     pass="${param[1]}"
@@ -74,6 +92,8 @@ function createUser() {
         chown $user /home/$user/.ssh/authorized_keys
         chmod 600 /home/$user/.ssh/authorized_keys
     fi
+
+
 }
 
 if [[ $1 =~ ^--help$|^-h$ ]]; then
@@ -88,10 +108,32 @@ fi
 
 ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
 
-if [ "$SSH" == "yes" ]; then
-	ftpcommand=" "
-fi
+if [ "$1" == "" ]; then
+    #No parameters SSH Mode
+    sed -i "s/Port 10022/Port $SSH_PORT/" ${HOME}/../etc/sshd_config || true
+    if [ ! -f ${HOME}/../etc/ssh/ssh_host_rsa_key ]; then
+        ssh-keygen -A -f  ${HOME}/../
+    fi 
+    if [ ! -f ${HOME}/../etc/ssh/authorized_keys ]; then
+        if [ "$SSH_KEY" == "" ]; then
+            ssh-keygen -t rsa -N "" -f ${HOME}/../etc/ssh/id_rsa
+            cp ${HOME}/../etc/ssh/id_rsa.pub ${HOME}/../etc/ssh/authorized_keys
+        else    
+            echo "$SSH_KEY" > ${HOME}/../etc/ssh/authorized_keys
+        fi
+        chmod 700 ${HOME}/../etc/ssh
+        chmod 600 ${HOME}/../etc/ssh/authorized_keys    
+        #Openshift fix
+        if [ `id -u` -ge 10000 ]; then
+            if ! whoami &> /dev/null; then
+                if [ -w /etc/shadow ]; then
+                    echo "${USER_NAME:-default}:*::0:::::" >> /etc/shadow
+                fi
+            fi
+        fi   
 
+    fi
+else
 # Create users only on first run
 if [ ! -f "$userConfFinalPath" ]; then
     
@@ -99,24 +141,33 @@ if [ ! -f "$userConfFinalPath" ]; then
     if [ -f "$userConfPath" ]; then
         cat "$userConfPath" | grep -v -e '^$' > "$userConfFinalPath"
     else
-	cp /etc/vsftpd.conf "$userConfFinalPath"
- 	if [ "$CHROOT" == "yes" ]; then 
-	  echo "chroot_local_user=YES" >> "$userConfFinalPath"
-	  #echo "passwd_chroot_enable=YES" >> "$userConfFinalPath"
-	  echo "chroot_list_enable=YES" >> "$userConfFinalPath"
-	  echo "chroot_list_file=$userListConfFinalPath" >> "$userConfFinalPath"
-	  echo "pasv_enable=YES" >> "$userConfFinalPath"
-	  echo "pasv_max_port=$(echo $PORTS | cut -f2 -d':')" >> "$userConfFinalPath"
-	  echo "pasv_min_port=$(echo $PORTS | cut -f1 -d':')" >> "$userConfFinalPath"
-	
-	  if [ "$ADDRESS" != "" ]; then
-		echo "pasv_address=$ADDRESS" >> "$userConfFinalPath"
-	  fi 
+        cp /etc/vsftpd.conf "$userConfFinalPath"
+        if [ "$CHROOT" == "yes" ]; then 
+            sed -i 's/#user_sub_token/user_sub_token/ ' "$userConfFinalPath"
+            sed -i 's/#local_root/local_root/ ' "$userConfFinalPath"
+            sed -i 's/#chroot_local_user/chroot_local_user/ ' "$userConfFinalPath"
+            # echo "chroot_local_user=YES" >> "$userConfFinalPath"
+            #echo "passwd_chroot_enable=YES" >> "$userConfFinalPath"
+            # echo "chroot_list_enable=YES" >> "$userConfFinalPath"
+            # echo "chroot_list_file=$userListConfFinalPath" >> "$userConfFinalPath"
+        else
+            sed -i 's/#local_root.*/local_root\=\/opt\/app-root\/src/' "$userConfFinalPath"
+        fi
+        if [ "$PASSIVE_PORTS" == "" ]; then
+            echo "pasv_enable=YES" >> "$userConfFinalPath"
+            echo "pasv_max_port=$(echo $PASSIVE_PORTS | cut -f2 -d':')" >> "$userConfFinalPath"
+            echo "pasv_min_port=$(echo $PASSIVE_PORTS | cut -f1 -d':')" >> "$userConfFinalPath"
+        fi
+        if [ "$ADDRESS" != "" ]; then
+            echo "pasv_address=$ADDRESS" >> "$userConfFinalPath"
+        fi 
+        echo "listen_port=$FTP_PORT" >> "$userConfFinalPath"
+        echo "ftp_data_port=$FTPD_PORT" >> "$userConfFinalPath"
 	fi
-    fi
 
     # Append users from arguments to final config
-    for user in "$@"; do
+    for user in "$@"; do    
+        echo $user
         echo "$user" >> "$userListFinalPath"
     done
 
@@ -151,3 +202,4 @@ if [ -d /etc/vsftpd/ftp.d ]; then
     unset f
 fi
 
+fi

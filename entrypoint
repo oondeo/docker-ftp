@@ -1,5 +1,0 @@
-#!/bin/sh
-
-/usr/local/sbin/sshconfig $*
-
-exec /usr/sbin/vsftpd /var/run/vsftpd.conf
