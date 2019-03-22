@@ -1,19 +1,25 @@
 # vsftpd
 minimal ftp and sshd server compatible with openshift
+First parameter is server to run, sshd by default
+In ssh only key login is permited.
 
 
+##VARIABLES:
 
-VARIABLES:
+- CHROOT:YES jail users in home dir
+- PASSIVE_PORTS: pasv ports used default: 60000:60010
+- FTP_PORT: change port 20
+- FTPD_PORT:  change port 21 
+- SSH_PORT: change port 22
+- ADDRESS: public address
+- USERS: user list in the form of user:password
+- SSH_KEY: Public key to login (user is 1001)
 
-CHROOT:YES jail users in home dir
-PASSIVE_PORTS: pasv ports used default: 60000:60010
-FTP_PORT: change port 20
-FTPD_PORT:  change port 21 
-SSH_PORT: change port 22
-ADDRESS: public address
-USERS: user list in the form of user:password
-SSH_KEY: Public key to login (user is 1001)
+## EXAMPLE 
+```
+docker run --name ftp --group-add root --rm -ti -e USERS="adam:\$1\$dPvIFNX1$9dz7gbE3wqYQ7zaKb6sh.1:1001:1001::/ftp/adam:/bin/sh" -p 10020:10020 -p 10021:10021 oondeo/ftpd /bin/sh
 
 
-WORK IN PROGRESS !!
+```
+##WORK IN PROGRESS !!
 - ssh tested

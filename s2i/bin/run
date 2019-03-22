@@ -7,15 +7,19 @@ export HOME=${HOME:-/opt/app-root/src}
 STI_SCRIPTS_PATH=${STI_SCRIPTS_PATH:-/usr/libexec/s2i/bin}
 
 echo "Apply environment variables attributes"
-$STI_SCRIPTS_PATH/conf-ssh "$USERS"
+$STI_SCRIPTS_PATH/conf-ssh
 echo "Starting server"
 COMMAND=$1
+if [ -z $COMMAND ]; then
+    exec /usr/sbin/sshd -D -f /var/run/sshd_config $COMMAND $*
+    exit 0
+    #mkdir -p /var/run/vsftpd/empty
+fi
 shift
 if test "$COMMAND" = "sshd"; then
-    /usr/sbin/sshd -D -f $HOME/../etc/sshd_config $*
-elif test "$COMMAND" = "vsftpd"; then
-    /usr/sbin/vsftpd $HOME/../etc/vsftpd.conf $*
-else
-    /usr/sbin/sshd -D -f $HOME/../etc/sshd_config $COMMAND $*
+    exec /usr/sbin/sshd -D -f $HOME/../var/sshd_config $*
+elif test "$COMMAND" = "ftpd"; then
+    exec proftpd --nodaemon -c $HOME/../var/proftpd.conf $*
+    
 fi
 

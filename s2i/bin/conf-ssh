@@ -1,12 +1,21 @@
 #!/bin/bash
-set -e
+
 
 #https://help.ubuntu.com/community/vsftpd
 HOME=${HOME:-/opt/app-root/src}
-userConfPath="$HOME/../etc/vsftpd.conf"
-userConfFinalPath="/var/run/vsftpd.conf"
-userListConfFinalPath="/var/run/vsftpd.chroot_list"
-userListFinalPath="/var/run/user_list"
+userSSHConfPath="$HOME/../etc/sshd_config"
+userSSHConfFinalPath="$HOME/../var/sshd_config"
+userConfPath="$HOME/../etc/proftpd.conf"
+userConfFinalPath="$HOME/../var/proftpd.conf"
+userListConfFinalPath="$HOME/../var/custom.passwd"
+userGroupListConfFinalPath="$HOME/../var/custom.group"
+scoreboardConfFinalPath="$HOME/../var/proftpd.scoreboard"
+pidFtpPath="$HOME/../var/proftpd.pid"
+userListConfPath="$HOME/../etc/custom.passwd"
+userListFinalPath="$HOME/../var/user_list"
+groupListConfFinalPath="$HOME/../var/custom.group"
+
+
 
 function printHelp() {
     echo "Add users as command arguments, STDIN or mounted in $userConfPath"
@@ -22,6 +31,19 @@ function createUser() {
     IFS=':' read -a param <<< $@
     user="${param[0]}"
     pass="${param[1]}"
+    root="${param[2]}"
+    salt=$(perl -e "print crypt(\"$pass\", \"salt\"),\"\n\"")
+
+    #echo $* >> $userListConfFinalPath
+    echo "$user:$salt:$(id -u):0::$root:/bin/sh" >> $userListConfFinalPath
+    echo "$user:x:1:" >> $groupListConfFinalPath
+
+}
+
+function __createUser() {
+    IFS=':' read -a param <<< $@
+    user="${param[0]}"
+    pass="${param[1]}"
 
     #add users to virtualusers file
     echo $user >> $userListConfFinalPath
@@ -31,7 +53,7 @@ function createUser() {
         mkdir -p $HOME/$user
     fi
 
-    db_load -T -t hash -f "$userListConfFinalPath" "${userListConfFinalPath}.db"
+    db5.3_load  -T -t hash -f "$userListConfFinalPath" "${userListConfFinalPath}.db"
     # chmod 600 "${userListConfFinalPath}.db"
     rm $userListConfFinalPath    
 }
@@ -108,11 +130,16 @@ fi
 
 ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
 
-if [ "$1" == "" ]; then
+# if [ "$1" == "" ]; then
     #No parameters SSH Mode
-    sed -i "s/Port 10022/Port $SSH_PORT/" ${HOME}/../etc/sshd_config || true
+    if [ -f "$userSSHConfPath" ]; then
+        cat "$userSSHConfPath" | grep -v -e '^$' > $userSSHConfFinalPath
+    else 
+        cat "/etc/ssh/sshd_config" | grep -v -e '^$' > $userSSHConfFinalPath
+    fi        
+    sed -i "s/Port 10022/Port $SSH_PORT/" $userSSHConfFinalPath || true
     if [ ! -f ${HOME}/../etc/ssh/ssh_host_rsa_key ]; then
-        ssh-keygen -A -f  ${HOME}/../
+        ssh-keygen -t rsa -N "" -f ${HOME}/../etc/ssh/ssh_host_rsa_key
     fi 
     if [ ! -f ${HOME}/../etc/ssh/authorized_keys ]; then
         if [ "$SSH_KEY" == "" ]; then
@@ -133,41 +160,48 @@ if [ "$1" == "" ]; then
         fi   
 
     fi
-else
+# else
 # Create users only on first run
 if [ ! -f "$userConfFinalPath" ]; then
     
+    echo "Configuring FTP"
+    #python -c "import crypt; print crypt.crypt('joske')"
     # Append mounted config to final config
     if [ -f "$userConfPath" ]; then
         cat "$userConfPath" | grep -v -e '^$' > "$userConfFinalPath"
     else
-        cp /etc/vsftpd.conf "$userConfFinalPath"
-        if [ "$CHROOT" == "yes" ]; then 
-            sed -i 's/#user_sub_token/user_sub_token/ ' "$userConfFinalPath"
-            sed -i 's/#local_root/local_root/ ' "$userConfFinalPath"
-            sed -i 's/#chroot_local_user/chroot_local_user/ ' "$userConfFinalPath"
-            # echo "chroot_local_user=YES" >> "$userConfFinalPath"
-            #echo "passwd_chroot_enable=YES" >> "$userConfFinalPath"
-            # echo "chroot_list_enable=YES" >> "$userConfFinalPath"
-            # echo "chroot_list_file=$userListConfFinalPath" >> "$userConfFinalPath"
-        else
-            sed -i 's/#local_root.*/local_root\=\/opt\/app-root\/src/' "$userConfFinalPath"
-        fi
-        if [ "$PASSIVE_PORTS" == "" ]; then
-            echo "pasv_enable=YES" >> "$userConfFinalPath"
-            echo "pasv_max_port=$(echo $PASSIVE_PORTS | cut -f2 -d':')" >> "$userConfFinalPath"
-            echo "pasv_min_port=$(echo $PASSIVE_PORTS | cut -f1 -d':')" >> "$userConfFinalPath"
+        cp /etc/proftpd.conf "$userConfFinalPath"
+ 
+        echo "ScoreboardFile $scoreboardConfFinalPath" >> "$userConfFinalPath"
+        echo "PidFile $pidFtpPath" >> "$userConfFinalPath"
+
+        echo "AuthUserFile $userListConfFinalPath" >> "$userConfFinalPath"
+        echo "AuthGroupFile $userGroupListConfFinalPath" >> "$userConfFinalPath"
+        #echo "USER $(id -u)" >> "$userConfFinalPath"
+        if [ "$PASSIVE_PORTS" != "" ]; then
+            #PassivePorts 10100 10110
+            echo "PassivePorts $(echo $PASSIVE_PORTS | sed -En 's/:/ /p')" >> "$userConfFinalPath"
+            # echo "pasv_max_port=$(echo $PASSIVE_PORTS | cut -f2 -d':')" >> "$userConfFinalPath"
+            # echo "pasv_min_port=$(echo $PASSIVE_PORTS | cut -f1 -d':')" >> "$userConfFinalPath"
         fi
         if [ "$ADDRESS" != "" ]; then
-            echo "pasv_address=$ADDRESS" >> "$userConfFinalPath"
+            #echo "pasv_address=$ADDRESS" >> "$userConfFinalPath"
+            echo "MasqueradeAddress	$ADDRESS" >> "$userConfFinalPath"
         fi 
-        echo "listen_port=$FTP_PORT" >> "$userConfFinalPath"
-        echo "ftp_data_port=$FTPD_PORT" >> "$userConfFinalPath"
+        echo "Port $FTP_PORT" >> "$userConfFinalPath"
+        # echo "ftp_data_port=$FTPD_PORT" >> "$userConfFinalPath"
 	fi
 
+    if [ ! -f $userListFinalPath ]
+    then
+    echo "Adding users"
+    IFS=',' read -ra ADDR <<< "$USERS"
+    for i in "${ADDR[@]}"; do
+        echo "$i" >> "$userListFinalPath"
+    done
     # Append users from arguments to final config
     for user in "$@"; do    
-        echo $user
+        # echo $user
         echo "$user" >> "$userListFinalPath"
     done
 
@@ -185,21 +219,25 @@ if [ ! -f "$userConfFinalPath" ]; then
         exit 3
     fi
 
+    fi
     # Import users from final conf file
     while IFS= read -r user || [[ -n "$user" ]]; do
         createUser "$user"
     done < "$userListFinalPath"
+
+    chmod 640 $userListConfFinalPath
+    chmod 640 $groupListConfFinalPath
 
     # Generate unique ssh keys for this container
     #ssh-keygen -A || return 1
 fi
 
 # Source custom scripts, if any
-if [ -d /etc/vsftpd/ftp.d ]; then
-    for f in /etc/vsftpd/ftp.d/*; do
-        [ -x "$f" ] && . "$f"
-    done
-    unset f
-fi
+# if [ -d /etc/vsftpd/ftp.d ]; then
+#     for f in /etc/vsftpd/ftp.d/*; do
+#         [ -x "$f" ] && . "$f"
+#     done
+#     unset f
+# fi
 
-fi
+# fi
