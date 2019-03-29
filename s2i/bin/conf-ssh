@@ -14,7 +14,7 @@ pidFtpPath="$HOME/../var/proftpd.pid"
 userListConfPath="$HOME/../etc/custom.passwd"
 userListFinalPath="$HOME/../var/user_list"
 groupListConfFinalPath="$HOME/../var/custom.group"
-
+userListInitConfPath="$HOME/../etc/user_list"
 
 
 function printHelp() {
@@ -194,6 +194,11 @@ if [ ! -f "$userConfFinalPath" ]; then
 
     if [ ! -f $userListFinalPath ]
     then
+
+    if [ -f $userListInitConfPath ]
+    then 
+        cp "$userListInitConfPath" "$userListFinalPath"
+    fi
     echo "Adding users"
     IFS=',' read -ra ADDR <<< "$USERS"
     for i in "${ADDR[@]}"; do

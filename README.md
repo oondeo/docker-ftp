@@ -3,6 +3,11 @@ minimal ftp and sshd server compatible with openshift
 First parameter is server to run, sshd by default
 In ssh only key login is permited.
 
+## Config files mountpoints
+/opt/app-root/etc/user_list :
+```
+adam:clave:/ftp/adam
+```
 
 ##VARIABLES:
 
@@ -17,7 +22,7 @@ In ssh only key login is permited.
 
 ## EXAMPLE 
 ```
-docker run --name ftp --group-add root --rm -ti -e USERS="adam:\$1\$dPvIFNX1$9dz7gbE3wqYQ7zaKb6sh.1:1001:1001::/ftp/adam:/bin/sh" -p 10020:10020 -p 10021:10021 oondeo/ftpd /bin/sh
+docker run --name ftp --group-add root --rm -ti -e USERS="adam:clave:/ftp/adam" -p 10020:10020 -p 10021:10021 oondeo/ftpd /bin/sh
 
 
 ```
