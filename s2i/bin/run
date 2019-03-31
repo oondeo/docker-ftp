@@ -8,6 +8,7 @@ STI_SCRIPTS_PATH=${STI_SCRIPTS_PATH:-/usr/libexec/s2i/bin}
 
 
 echo "Apply environment variables attributes"
+$STI_SCRIPTS_PATH/conf-ssh
 $STI_SCRIPTS_PATH/conf_update.sh &
 echo "Starting server"
 COMMAND=$1
