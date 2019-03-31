@@ -132,16 +132,16 @@ ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
 
 # if [ "$1" == "" ]; then
     #No parameters SSH Mode
-    if [ -f "$userSSHConfPath" ]; then
+    if [ -e "$userSSHConfPath" ]; then
         cat "$userSSHConfPath" | grep -v -e '^$' > $userSSHConfFinalPath
     else 
         cat "/etc/ssh/sshd_config" | grep -v -e '^$' > $userSSHConfFinalPath
     fi        
     sed -i "s/Port 10022/Port $SSH_PORT/" $userSSHConfFinalPath || true
-    if [ ! -f ${HOME}/../etc/ssh/ssh_host_rsa_key ]; then
+    if [ ! -e ${HOME}/../etc/ssh/ssh_host_rsa_key ]; then
         ssh-keygen -t rsa -N "" -f ${HOME}/../etc/ssh/ssh_host_rsa_key
     fi 
-    if [ ! -f ${HOME}/../etc/ssh/authorized_keys ]; then
+    if [ ! -e ${HOME}/../etc/ssh/authorized_keys ]; then
         if [ "$SSH_KEY" == "" ]; then
             ssh-keygen -t rsa -N "" -f ${HOME}/../etc/ssh/id_rsa
             cp ${HOME}/../etc/ssh/id_rsa.pub ${HOME}/../etc/ssh/authorized_keys
@@ -162,12 +162,12 @@ ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
     fi
 # else
 # Create users only on first run
-if [ ! -f "$userConfFinalPath" ]; then
+if [ ! -e "$userConfFinalPath" ]; then
     
     echo "Configuring FTP"
     #python -c "import crypt; print crypt.crypt('joske')"
     # Append mounted config to final config
-    if [ -f "$userConfPath" ]; then
+    if [ -e "$userConfPath" ]; then
         cat "$userConfPath" | grep -v -e '^$' > "$userConfFinalPath"
     else
         cp /etc/proftpd.conf "$userConfFinalPath"
@@ -192,10 +192,10 @@ if [ ! -f "$userConfFinalPath" ]; then
         # echo "ftp_data_port=$FTPD_PORT" >> "$userConfFinalPath"
 	fi
 
-    if [ ! -f $userListFinalPath ]
+    if [ ! -e $userListFinalPath ]
     then
 
-    if [ -f $userListInitConfPath ]
+    if [ -e $userListInitConfPath ]
     then 
         cp "$userListInitConfPath" "$userListFinalPath"
     fi
