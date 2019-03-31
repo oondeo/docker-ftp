@@ -34,7 +34,7 @@ COPY root/root/ /
 
 RUN docker-header
 
-RUN apt-get update && apt-get install -y --no-install-recommends openssh-server proftpd \
+RUN apt-get update && apt-get install -y --no-install-recommends openssh-server proftpd inotify-tools \
     && mkdir -p /opt/app-root/etc/ssh \
     && mv /var/log/proftpd /opt/app-root/var/log && ln -s /opt/app-root/var/log /var/log/proftpd \
     && rm -rf /tmp/* /var/tmp/* /var/lib/apt/* /var/cache/*

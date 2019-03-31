@@ -15,6 +15,7 @@ userListConfPath="$HOME/../etc/custom.passwd"
 userListFinalPath="$HOME/../var/user_list"
 groupListConfFinalPath="$HOME/../var/custom.group"
 userListInitConfPath="$HOME/../etc/user_list"
+sshPasswordConfPath="$HOME/../etc/ssh_password"
 
 
 function printHelp() {
@@ -150,19 +151,29 @@ ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
         fi
         chmod 700 ${HOME}/../etc/ssh
         chmod 600 ${HOME}/../etc/ssh/authorized_keys    
-        #Openshift fix
-        if [ `id -u` -ge 10000 ]; then
-            if ! whoami &> /dev/null; then
-                if [ -w /etc/shadow ]; then
-                    echo "${USER_NAME:-default}:*::0:::::" >> /etc/shadow
-                fi
-            fi
-        fi   
 
     fi
+    if [ -e $sshPasswordConfPath ]
+    then
+        SSH_PASSWORD="$(cat $sshPasswordConfPath)"
+    fi
+    #cp /etc/shadow /tmp/shadow
+    if [ -w /etc/shadow ]
+    then
+    sed '/^default\:/d' > /tmp/shadow
+    mv /tmp/shadow /etc/shadow
+    if [ ! -z $SSH_PASSWORD ]
+    then 
+        salt=$(perl -e "print crypt(\"$SSH_PASSWORD\", \"salt\"),\"\n\"")
+        echo "${USER_NAME:-default}:$salt::0:::::" >> /etc/shadow
+    else
+        echo "${USER_NAME:-default}:*::0:::::" >> /etc/shadow
+    fi
+    fi
+  
 # else
 # Create users only on first run
-if [ ! -e "$userConfFinalPath" ]; then
+#if [ ! -e "$userConfFinalPath" ]; then
     
     echo "Configuring FTP"
     #python -c "import crypt; print crypt.crypt('joske')"
@@ -235,7 +246,7 @@ if [ ! -e "$userConfFinalPath" ]; then
 
     # Generate unique ssh keys for this container
     #ssh-keygen -A || return 1
-fi
+#fi
 
 # Source custom scripts, if any
 # if [ -d /etc/vsftpd/ftp.d ]; then
