@@ -189,6 +189,9 @@ ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
     else
         cp /etc/proftpd.conf "$userConfFinalPath"
  
+        echo "User ${USER_NAME:-default}" >> "$userConfFinalPath"
+        echo "Group root" >> "$userConfFinalPath"
+
         echo "ScoreboardFile $scoreboardConfFinalPath" >> "$userConfFinalPath"
         echo "PidFile $pidFtpPath" >> "$userConfFinalPath"
 

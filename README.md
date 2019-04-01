@@ -21,7 +21,8 @@ adam:clave:/ftp/adam
 - ADDRESS: public address
 - USERS: user list in the form of user:password
 - SSH_KEY: Public key to login (user is 1001)
-- SSH_PASSWORD: 
+- SSH_PASSWORD
+- USER_NAME
 
 ## EXAMPLE 
 ```
