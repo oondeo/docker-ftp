@@ -31,4 +31,8 @@ docker run --name ftp --group-add root --rm -ti -e USERS="adam:clave:/ftp/adam" 
 
 ```
 ##WORK IN PROGRESS !!
-- ssh tested
+- ssh key tested
+- ssh password implemented
+- ftpd tested
+- wotking with random uid in openshift
+- Suport to autoreloading

@@ -3,8 +3,10 @@
 
 #https://help.ubuntu.com/community/vsftpd
 HOME=${HOME:-/opt/app-root/src}
-userSSHConfPath="$HOME/../etc/sshd_config"
-userSSHConfFinalPath="$HOME/../var/sshd_config"
+userSSHConfDir="$HOME/../etc/sshd_config"
+userSSHConfPath="$userSSHConfDir/sshd_config"
+userSSHConfFinalDir="$HOME/../etc/sshd_config"
+userSSHConfFinalPath="$userSSHConfFinalDir/sshd_config"
 userConfPath="$HOME/../etc/proftpd.conf"
 userConfFinalPath="$HOME/../var/proftpd.conf"
 userListConfFinalPath="$HOME/../var/custom.passwd"
@@ -132,6 +134,7 @@ fi
 ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
 
 # if [ "$1" == "" ]; then
+    mkdir -p $userSSHConfFinalDir
     #No parameters SSH Mode
     if [ -e "$userSSHConfPath" ]; then
         cat "$userSSHConfPath" | grep -v -e '^$' > $userSSHConfFinalPath
@@ -139,20 +142,25 @@ ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
         cat "/etc/ssh/sshd_config" | grep -v -e '^$' > $userSSHConfFinalPath
     fi        
     sed -i "s/Port 10022/Port $SSH_PORT/" $userSSHConfFinalPath || true
-    if [ ! -e ${HOME}/../etc/ssh/ssh_host_rsa_key ]; then
-        ssh-keygen -t rsa -N "" -f ${HOME}/../etc/ssh/ssh_host_rsa_key
+    if [ ! -e ${userSSHConfDir}/ssh_host_rsa_key ]; then
+        ssh-keygen -t rsa -N "" -f ${userSSHConfFinalDir}/ssh_host_rsa_key
+    else 
+        cp ${userSSHConfDir}/ssh_host_rsa_key  ${userSSHConfFinalDir}/ssh_host_rsa_key
     fi 
-    if [ ! -e ${HOME}/../etc/ssh/authorized_keys ]; then
+    if [ ! -e ${userSSHConfDir}/authorized_keys ]; then
         if [ "$SSH_KEY" == "" ]; then
-            ssh-keygen -t rsa -N "" -f ${HOME}/../etc/ssh/id_rsa
-            cp ${HOME}/../etc/ssh/id_rsa.pub ${HOME}/../etc/ssh/authorized_keys
+            ssh-keygen -t rsa -N "" -f ${userSSHConfFinalDir}/id_rsa
+            cp ${userSSHConfFinalDir}/id_rsa.pub ${userSSHConfFinalDir}/authorized_keys
         else    
-            echo "$SSH_KEY" > ${HOME}/../etc/ssh/authorized_keys
+            echo "$SSH_KEY" > ${userSSHConfFinalDir}/authorized_keys
         fi
-        chmod 700 ${HOME}/../etc/ssh
-        chmod 600 ${HOME}/../etc/ssh/authorized_keys    
 
+    else
+        cp ${userSSHConfDir}/authorized_keys ${userSSHConfFinalDir}/authorized_keys
     fi
+    chmod 700 ${userSSHConfFinalDir}
+    chmod 600 ${userSSHConfFinalDir}/authorized_keys    
+
     if [ -e $sshPasswordConfPath ]
     then
         SSH_PASSWORD="$(cat $sshPasswordConfPath)"
@@ -217,7 +225,11 @@ ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
 
     if [ -e $userListInitConfPath ]
     then 
-        cp "$userListInitConfPath" "$userListFinalPath"
+        #Fix only one user
+        #cp "$userListInitConfPath" "$userListFinalPath"
+        while IFS= read -r user || [[ -n "$user" ]]; do
+            echo "$userListFinalPath"
+        done < "$userListInitConfPath"        
     fi
     echo "Adding users"
     IFS=',' read -ra ADDR <<< "$USERS"
