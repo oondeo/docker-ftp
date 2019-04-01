@@ -19,9 +19,9 @@ if [ -z $COMMAND ]; then
 fi
 shift
 if test "$COMMAND" = "sshd"; then
-    exec /usr/sbin/sshd -D -f $HOME/../var/sshd_config $*
+    exec /usr/sbin/sshd -D -f /var/run/sshd_config $*
 elif test "$COMMAND" = "ftpd"; then
-    exec proftpd --nodaemon -c $HOME/../var/proftpd.conf $*
+    exec proftpd --nodaemon -c /var/run/proftpd.conf $*
     
 fi
 

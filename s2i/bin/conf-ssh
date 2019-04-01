@@ -5,17 +5,17 @@
 HOME=${HOME:-/opt/app-root/src}
 userSSHConfDir="$HOME/../etc/sshd_config"
 userSSHConfPath="$userSSHConfDir/sshd_config"
-userSSHConfFinalDir="$HOME/../etc/sshd_config"
+userSSHConfFinalDir="/var/run/ssh/sshd_config"
 userSSHConfFinalPath="$userSSHConfFinalDir/sshd_config"
 userConfPath="$HOME/../etc/proftpd.conf"
-userConfFinalPath="$HOME/../var/proftpd.conf"
-userListConfFinalPath="$HOME/../var/custom.passwd"
-userGroupListConfFinalPath="$HOME/../var/custom.group"
-scoreboardConfFinalPath="$HOME/../var/proftpd.scoreboard"
-pidFtpPath="$HOME/../var/proftpd.pid"
+userConfFinalPath="/var/run/proftpd.conf"
+userListConfFinalPath="/var/run/custom.passwd"
+userGroupListConfFinalPath="/var/run/custom.group"
+scoreboardConfFinalPath="/var/run/proftpd.scoreboard"
+pidFtpPath="/var/run/proftpd.pid"
 userListConfPath="$HOME/../etc/custom.passwd"
-userListFinalPath="$HOME/../var/user_list"
-groupListConfFinalPath="$HOME/../var/custom.group"
+userListFinalPath="/var/run/user_list"
+groupListConfFinalPath="/var/run/custom.group"
 userListInitConfPath="$HOME/../etc/user_list"
 sshPasswordConfPath="$HOME/../etc/ssh_password"
 
@@ -133,7 +133,7 @@ fi
 
 ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
 
-# if [ "$1" == "" ]; then
+if [ ! -e "$userSSHConfFinalPath" ]; then
     mkdir -p $userSSHConfFinalDir
     #No parameters SSH Mode
     if [ -e "$userSSHConfPath" ]; then
@@ -143,13 +143,13 @@ ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
     fi        
     sed -i "s/Port 10022/Port $SSH_PORT/" $userSSHConfFinalPath || true
     if [ ! -e ${userSSHConfDir}/ssh_host_rsa_key ]; then
-        ssh-keygen -t rsa -N "" -f ${userSSHConfFinalDir}/ssh_host_rsa_key
+        ssh-keygen -q -t rsa -N "" -f ${userSSHConfFinalDir}/ssh_host_rsa_key
     else 
         cp ${userSSHConfDir}/ssh_host_rsa_key  ${userSSHConfFinalDir}/ssh_host_rsa_key
     fi 
     if [ ! -e ${userSSHConfDir}/authorized_keys ]; then
         if [ "$SSH_KEY" == "" ]; then
-            ssh-keygen -t rsa -N "" -f ${userSSHConfFinalDir}/id_rsa
+            ssh-keygen -q -t rsa -N "" -f ${userSSHConfFinalDir}/id_rsa
             cp ${userSSHConfFinalDir}/id_rsa.pub ${userSSHConfFinalDir}/authorized_keys
         else    
             echo "$SSH_KEY" > ${userSSHConfFinalDir}/authorized_keys
@@ -168,22 +168,26 @@ ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
     #cp /etc/shadow /tmp/shadow
     if [ -w /etc/shadow ]
     then
-    sed '/^default\:/d' /etc/shadow > /tmp/shadow
-    cat /tmp/shadow > /etc/shadow
-    rm /tmp/shadow
-    if [ ! -z $SSH_PASSWORD ]
-    then 
-        salt=$(perl -e "print crypt(\"$SSH_PASSWORD\", \"salt\"),\"\n\"")
-        echo "${USER_NAME:-default}:$salt::0:::::" >> /etc/shadow
-    else
-        echo "${USER_NAME:-default}:*::0:::::" >> /etc/shadow
+        sed '/^default\:/d' /etc/shadow > /tmp/shadow
+        cat /tmp/shadow > /etc/shadow
+        rm /tmp/shadow
+        if [ ! -z $SSH_PASSWORD ]
+        then 
+            salt=$(perl -e "print crypt(\"$SSH_PASSWORD\", \"salt\"),\"\n\"")
+            echo "${USER_NAME:-default}:$salt::0:::::" >> /etc/shadow
+        else
+            echo "${USER_NAME:-default}:*::0:::::" >> /etc/shadow
+        fi
     fi
-    fi
-    #Non openshift init
+fi
+#Non openshift init
+if [ "$(grep "^default:" /etc/passwd)" == "" ]
+then
     cp /etc/passwd /tmp/passwd
     sed -i 's/^1001\:/default:/' /tmp/passwd
     cat /tmp/passwd > /etc/passwd
     rm -f /tmp/passwd
+fi
   
 # else
 # Create users only on first run
@@ -220,15 +224,17 @@ ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
         # echo "ftp_data_port=$FTPD_PORT" >> "$userConfFinalPath"
 	fi
 
-    if [ ! -e $userListFinalPath ]
-    then
+    #if [ ! -e $userListFinalPath ]
+    #then
 
+    rm -f "$userListFinalPath"
     if [ -e $userListInitConfPath ]
     then 
         #Fix only one user
         #cp "$userListInitConfPath" "$userListFinalPath"
+
         while IFS= read -r user || [[ -n "$user" ]]; do
-            echo "$userListFinalPath"
+            echo "$user" >> "$userListFinalPath"
         done < "$userListInitConfPath"        
     fi
     echo "Adding users"
@@ -256,7 +262,6 @@ ftpcommand="ForceCommand /usr/lib/ssh/sftp-server"
         exit 3
     fi
 
-    fi
     # Import users from final conf file
     while IFS= read -r user || [[ -n "$user" ]]; do
         createUser "$user"
