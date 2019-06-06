@@ -54,6 +54,7 @@ COPY s2i/bin $STI_SCRIPTS_PATH
 
 RUN docker-footer \ 
     && sed -i 's/1001\:\!/1001:*/g' /etc/shadow \
+    && chown -R root:root /opt/app-root \
     && chown root:root /etc/shadow && chmod 660 /etc/shadow \
     && chmod 660 /var/log \
     && chmod go-w /opt/app-root/etc /opt/app-root /opt 
